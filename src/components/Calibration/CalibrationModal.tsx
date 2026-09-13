@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UserProfile, EarSide, CalibrationRecord } from '../../types/tinnitus';
+import { UserProfile, EarSide, CalibrationRecord, ToneWaveform } from '../../types/tinnitus';
 import { PitchMatcher } from './PitchMatcher';
 import { LoudnessMatcher } from './LoudnessMatcher';
 import { calculateCRChannels } from '../../audio/crCalculator';
@@ -28,6 +28,7 @@ export const CalibrationModal: React.FC<CalibrationModalProps> = ({
   const [earSide, setEarSide] = useState<EarSide>(profile.earSide || 'both');
   const [thresholdVolume, setThresholdVolume] = useState<number>(profile.thresholdVolume || 0.15);
   const [therapeuticVolume, setTherapeuticVolume] = useState<number>(profile.therapeuticVolume || 0.45);
+  const [waveform, setWaveform] = useState<ToneWaveform>(profile.waveform || 'sine');
   const [isPreviewingCR, setIsPreviewingCR] = useState(false);
 
   if (!isOpen) return null;
@@ -93,6 +94,7 @@ export const CalibrationModal: React.FC<CalibrationModalProps> = ({
       earSide,
       thresholdVolume,
       therapeuticVolume,
+      waveform,
       isCalibrated: true,
       lastCalibratedAt: new Date().toISOString(),
       calibrationHistory: [...prevHistory, newCalibRecord],
@@ -181,6 +183,8 @@ export const CalibrationModal: React.FC<CalibrationModalProps> = ({
               frequency={frequency}
               onFrequencyChange={setFrequency}
               volume={therapeuticVolume}
+              waveform={waveform}
+              onWaveformChange={setWaveform}
             />
           )}
 

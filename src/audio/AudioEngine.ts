@@ -1,4 +1,4 @@
-import { CRChannel, UserProfile, EarSide } from '../types/tinnitus';
+import { CRChannel, UserProfile, EarSide, ToneWaveform } from '../types/tinnitus';
 import { calculateCRChannels, generateRandomCycleOrder } from './crCalculator';
 import { createSafetyCompressor } from './safetyLimiter';
 import { NoiseGenerator } from './noiseGenerator';
@@ -25,6 +25,16 @@ export class AudioEngine {
   // Calibration tone nodes
   private calibOsc: OscillatorNode | null = null;
   private calibGain: GainNode | null = null;
+  private calibBaseVolume: number = 0.3;
+
+  /**
+   * Fletcher-Munson bass compensation factor for human hearing threshold below 350 Hz
+   */
+  private getEqualLoudnessGain(freq: number): number {
+    if (freq >= 350) return 1.0;
+    const logRatio = Math.log10(350 / Math.max(20, freq));
+    return Math.min(2.4, 1.0 + logRatio * 1.15);
+  }
 
   // Residual Inhibition stimulus nodes
   private riNoiseNode: AudioBufferSourceNode | null = null;
@@ -141,20 +151,24 @@ export class AudioEngine {
   // CALIBRATION / PITCH-MATCHING TONE GENERATOR
   // ==========================================
 
-  public startCalibrationTone(frequency: number, volume: number = 0.3) {
+  public startCalibrationTone(frequency: number, volume: number = 0.3, waveform: ToneWaveform = 'sine') {
     this.init();
     if (!this.ctx || !this.masterGain) return;
 
     this.stopCalibrationTone();
+    this.calibBaseVolume = volume;
 
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
 
-    osc.type = 'sine';
+    osc.type = waveform === 'triangle' ? 'triangle' : 'sine';
     osc.frequency.setValueAtTime(frequency, this.ctx.currentTime);
 
+    const bassGain = this.getEqualLoudnessGain(frequency);
+    const targetGain = Math.max(0.001, Math.min(0.9, volume * 0.5 * bassGain));
+
     gain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(Math.max(0.001, volume * 0.5), this.ctx.currentTime + 0.05);
+    gain.gain.exponentialRampToValueAtTime(targetGain, this.ctx.currentTime + 0.05);
 
     osc.connect(gain);
     gain.connect(this.masterGain);
@@ -167,13 +181,27 @@ export class AudioEngine {
   public updateCalibrationFrequency(frequency: number) {
     if (this.calibOsc && this.ctx) {
       this.calibOsc.frequency.setTargetAtTime(frequency, this.ctx.currentTime, 0.02);
+      if (this.calibGain) {
+        const bassGain = this.getEqualLoudnessGain(frequency);
+        const targetGain = Math.max(0.001, Math.min(0.9, this.calibBaseVolume * 0.5 * bassGain));
+        this.calibGain.gain.setTargetAtTime(targetGain, this.ctx.currentTime, 0.05);
+      }
     }
   }
 
   public updateCalibrationVolume(volume: number) {
-    if (this.calibGain && this.ctx) {
-      const clamped = Math.max(0.0001, Math.min(1, volume * 0.5));
-      this.calibGain.gain.setTargetAtTime(clamped, this.ctx.currentTime, 0.05);
+    this.calibBaseVolume = volume;
+    if (this.calibGain && this.calibOsc && this.ctx) {
+      const currentFreq = this.calibOsc.frequency.value;
+      const bassGain = this.getEqualLoudnessGain(currentFreq);
+      const targetGain = Math.max(0.001, Math.min(0.9, volume * 0.5 * bassGain));
+      this.calibGain.gain.setTargetAtTime(targetGain, this.ctx.currentTime, 0.05);
+    }
+  }
+
+  public setCalibrationWaveform(waveform: ToneWaveform) {
+    if (this.calibOsc) {
+      this.calibOsc.type = waveform === 'triangle' ? 'triangle' : 'sine';
     }
   }
 
@@ -458,13 +486,15 @@ export class AudioEngine {
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
 
-    osc.type = 'sine';
+    const oscType: OscillatorType = this.profile?.waveform === 'triangle' ? 'triangle' : 'sine';
+    osc.type = oscType;
     osc.frequency.setValueAtTime(frequency, startTime);
 
     // Hanning envelope: 15ms ramp up, hold, 15ms ramp down
     const attackTime = 0.015;
     const releaseTime = 0.015;
-    const peakVolume = 0.5; // Scaled to safe listening level
+    const bassGain = this.getEqualLoudnessGain(frequency);
+    const peakVolume = Math.min(0.85, 0.5 * bassGain); // Scaled with equal-loudness compensation
 
     gain.gain.setValueAtTime(0.0001, startTime);
     gain.gain.exponentialRampToValueAtTime(peakVolume, startTime + attackTime);

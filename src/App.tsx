@@ -188,6 +188,8 @@ export const App: React.FC = () => {
                 frequency={profile.targetFrequency}
                 onFrequencyChange={(freq) => setProfile({ ...profile, targetFrequency: freq, isCalibrated: true })}
                 volume={profile.therapeuticVolume}
+                waveform={profile.waveform || 'sine'}
+                onWaveformChange={(wf) => setProfile({ ...profile, waveform: wf })}
               />
 
               <div className="pt-4 border-t border-neuro-800">

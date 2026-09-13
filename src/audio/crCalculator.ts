@@ -45,23 +45,28 @@ export function greenwoodToFreq(xMm: number): number {
  * Computes the 4 CR stimulation channels for a given tinnitus target frequency fT.
  */
 export function calculateCRChannels(fT: number): CRChannel[] {
-  // Clamp fT safely between 250 Hz and 18,000 Hz
-  const target = Math.max(250, Math.min(18000, fT));
+  // Clamp fT safely between 20 Hz and 18,000 Hz (full human audible spectrum)
+  const target = Math.max(20, Math.min(18000, fT));
 
-  return CR_DEFAULT_RATIOS.map((ratio, index) => {
+  const freqs = CR_DEFAULT_RATIOS.map((ratio) => {
     let freq = Math.round(target * ratio);
-    
-    // Safety boundaries for human audio reproduction
-    freq = Math.max(100, Math.min(19500, freq));
-
-    return {
-      index: index + 1,
-      frequency: freq,
-      color: CHANNEL_COLORS[index],
-      label: `f${index + 1}`,
-      ratio,
-    };
+    return Math.max(20, Math.min(19500, freq));
   });
+
+  // Ensure strict ascending ordering for low frequencies (e.g. at 20-30 Hz)
+  for (let i = 1; i < freqs.length; i++) {
+    if (freqs[i] <= freqs[i - 1]) {
+      freqs[i] = freqs[i - 1] + 1;
+    }
+  }
+
+  return freqs.map((freq, index) => ({
+    index: index + 1,
+    frequency: freq,
+    color: CHANNEL_COLORS[index],
+    label: `f${index + 1}`,
+    ratio: CR_DEFAULT_RATIOS[index],
+  }));
 }
 
 /**

@@ -47,6 +47,7 @@ export interface UserProfile {
   offCycles: number;           // 2 cycles silent (Tass 3:2 protocol)
   noiseType: 'none' | 'pink' | 'ocean' | 'brown';
   noiseVolume: number;         // 0 to 1
+  waveform?: ToneWaveform;     // 'sine' or 'triangle' (soft harmonic)
   isCalibrated: boolean;
   lastCalibratedAt?: string;
   createdAt: string;

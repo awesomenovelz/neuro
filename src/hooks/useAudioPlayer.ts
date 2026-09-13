@@ -17,6 +17,7 @@ export const DEFAULT_USER_PROFILE: UserProfile = {
   offCycles: 2,
   noiseType: 'none',
   noiseVolume: 0.2,
+  waveform: 'sine',
   isCalibrated: false,
   createdAt: new Date().toISOString(),
   calibrationHistory: [],
