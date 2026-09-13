@@ -6,4 +6,4 @@ services:
     container_name: neuroreset-app
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "${PORT:-8080}:80"
